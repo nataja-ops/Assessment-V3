@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiEDU Partner Rubric Tracking</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #F8F7FF; color: #111; }
+    .btn { background: transparent; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; color: #111; transition: background 0.15s; }
+    .btn:hover { background: #f9fafb; }
+    .btn-primary { background: #6D28D9; color: #fff; border-color: #6D28D9; }
+    .btn-primary:hover { background: #5B21B6; }
+    .btn-primary:disabled { background: #9CA3AF; border-color: #9CA3AF; cursor: not-allowed; }
+    input, select, textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-family: inherit; background: #fff; color: #111; outline: none; }
+    input:focus, select:focus, textarea:focus { border-color: #6D28D9; box-shadow: 0 0 0 2px rgba(109,40,217,0.12); }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useCallback } = React;
+
+    // ── Config ────────────────────────────────────────────────────────────────
+    const BASE      = "apptKJnbKllpLEA8u";
+    const T_ASSESS  = "tbldyDcTuEmjbzMmr";
+    const T_PROGRESS= "tblcod2MjY98TCSmO";
+    // Airtable PAT — set via env var AIRTABLE_PAT at build time, or hardcode for quick deploy:
+    const PAT = window.AIRTABLE_PAT || "YOUR_AIRTABLE_PAT_HERE";
+
+    // ── Staff ─────────────────────────────────────────────────────────────────
+    const STAFF = [
+      { id:"rec4iegLKbaGX2tQb", name:"Ashley Flynn" },
+      { id:"reciSoLp5n7o1XC6p", name:"Ashley Renick" },
+      { id:"recVOBvltpw6pIUfs", name:"Christian Pinedo" },
+      { id:"recY4onTpz1FkFXAJ", name:"Emma Doggett Neergaard" },
+      { id:"rec80fWmt9U04HNSz", name:"Kristen Kayser" },
+      { id:"recIvE33gtSZTNssY", name:"LeNard Pitts" },
+      { id:"recsvC34mXWsbwJFN", name:"Lindsay Berger" },
+      { id:"reclijqXFXMWRG9bX", name:"Na'taja Flood" },
+    ];
+
+    // ── Partners ──────────────────────────────────────────────────────────────
+    const PARTNERS = [
+      { id:"recy8ZgXkid1FnGdw", name:"Prince George's County Public Schools",               year:"2023", status:"Active",        type:"District" },
+      { id:"rec6TuSeDsb86pdJr", name:"Colorado Education Initiative",                        year:"2024", status:"Active",        type:"District" },
+      { id:"rechc5cbtEi1AXzmi", name:"San Diego Unified School District",                    year:"2024", status:"Active",        type:"District" },
+      { id:"recCsNsJs6dxGlrbj", name:"Sunnyvale School District",                            year:"2024", status:"Active",        type:"District" },
+      { id:"rec3sZsnsvi4v9Zir", name:"Akron Early College",                                  year:"2025", status:"Complete",      type:"School"   },
+      { id:"reci3bWwzs7whG4bI", name:"33rd District PTA",                                    year:"2025", status:"Active",        type:"District" },
+      { id:"recETPQhXgQW2bwpX", name:"Fresno Unified School District",                       year:"2025", status:"Complete",      type:"District" },
+      { id:"recGZ0PygvAboUghz", name:"Silicon Schools Fund",                                 year:"2025", status:"Complete",      type:"District" },
+      { id:"recI4UMQ940s5Pcda", name:"Copley High School",                                   year:"2025", status:"Complete",      type:"School"   },
+      { id:"recJXLWFCpewboP6M", name:"Massachusetts DESE",                                   year:"2025", status:"Active",        type:"District" },
+      { id:"recKQOCAxJhy9vnia", name:"Playlab",                                               year:"2025", status:"Active",        type:"District" },
+      { id:"recDsz4vqcTmSdNIE", name:"Montgomery County Educational Service Center",         year:"2025", status:"Complete",      type:"District" },
+      { id:"recmVM0iWetVacVBa", name:"Idaho STEM Action Center",                             year:"2025", status:"Active",        type:"District" },
+      { id:"recqNqxOEM8zFGKZO", name:"Michigan Virtual",                                     year:"2025", status:"Active",        type:"District" },
+      { id:"recwKE3mRnnAcnCTU", name:"Napa County Office of Education",                      year:"2025", status:"Active",        type:"District" },
+      { id:"reco4nhdxF4FP9YWD", name:"Multnomah Education Service District",                 year:"2025", status:"Complete",      type:"District" },
+      { id:"recoHF7ixD7efIjIt", name:"Contra Costa County Office of Education",              year:"2025", status:"Active",        type:"District" },
+      { id:"recrEAeuZwgTNa3lz", name:"Piedmont Unified School District",                     year:"2025", status:"Complete",      type:"District" },
+      { id:"recSKAWMjnA29a381", name:"San Bruno Park School District",                       year:"2025", status:"Active",        type:"District" },
+      { id:"recUGv199n7SifBTF", name:"Lake Oswego School District",                          year:"2025", status:"Complete",      type:"District" },
+      { id:"recvDdKBz3HSvc83B", name:"Urban Assembly",                                       year:"2025", status:"Complete",      type:"District" },
+      { id:"recYtbwi64BFCl6mW", name:"Leading Now",                                          year:"2025", status:"Complete",      type:"District" },
+      { id:"recZ7OlkBqPQU8dBl", name:"Doral Academy Preparatory School",                    year:"2025", status:"Complete",      type:"School"   },
+      { id:"rec0zDoYLeSGCRtBh", name:"Montana Digital Academy",                              year:"2025", status:"Active",        type:"District" },
+      { id:"recjlYwZEL9rkoS1L", name:"Teach Plus",                                           year:"2025", status:"Expiring Soon", type:"District" },
+      { id:"rec1DhsOjg7i3oNOX", name:"DREAM Charter School",                                 year:"2026", status:"Active",        type:"School"   },
+      { id:"rec2RF6jo7QoTR6JP", name:"Sinclair Community College",                           year:"2026", status:"Active",        type:"District" },
+      { id:"recfvTtH3rv71uQrl", name:"Raspberry Pi Foundation",                              year:"2026", status:"Active",        type:"District" },
+      { id:"recL2rjOXabCWQ2Jo", name:"West St. Paul-Mendota Heights-Eagan Area Schools",    year:"2026", status:"Active",        type:"District" },
+      { id:"recnXQQ0jmn2gnyRt", name:"Yorktown Community Schools",                           year:"2026", status:"Active",        type:"District" },
+      { id:"recoVtNpCKpcSLimV", name:"Coaction Collective (Amazon Partner)",                 year:"2026", status:"Active",        type:"District" },
+      { id:"recP2V3bWk4HRnyyP", name:"Educational Testing Service (ETS)",                    year:"2026", status:"Active",        type:"District" },
+      { id:"recri4k2eu9x7OHXY", name:"Michigan Virtual (new)",                               year:"2026", status:"Active",        type:"District" },
+      { id:"recTOhIjpXC5EWigj", name:"University Prep Schools",                              year:"2026", status:"Active",        type:"School"   },
+      { id:"recvPA5LGJWDczGsD", name:"Oregon Media Literacy Coalition",                      year:"2026", status:"Active",        type:"District" },
+      { id:"recYWX0nWXbBuxCSV", name:"Visions in Education",                                 year:"2026", status:"Active",        type:"District" },
+      { id:"reczuvSXOHXKcOAj2", name:"New York City Public Schools",                         year:"2026", status:"Active",        type:"District" },
+    ];
+
+    // ── Rubric structure ──────────────────────────────────────────────────────
+    const DISTRICT_DOMAINS = [
+      { name:"Vision",              color:"#6D28D9", bg:"#EDE9FE", subs:["Student Readiness","System AI Use","AI Use in Instruction"] },
+      { name:"Strategy",            color:"#2563EB", bg:"#EFF6FF", subs:["Set Strategy","Plan for Change"] },
+      { name:"Stakeholders",        color:"#0891B2", bg:"#ECFEFF", subs:["Context Gathering","Engage and Learn","Communicate and Educate"] },
+      { name:"Policy & Operations", color:"#059669", bg:"#ECFDF5", subs:["Guardrails","Processes"] },
+      { name:"Teaching & Learning", color:"#D97706", bg:"#FFFBEB", subs:["Capacity Building","Instructional Materials","Departmental Alignment","Tool Selection"] },
+    ];
+    const SCHOOL_DOMAINS = [
+      { name:"Vision",              color:"#6D28D9", bg:"#EDE9FE", subs:["Student AI Readiness","School AI Use","AI Use in Instruction"] },
+      { name:"Stakeholders",        color:"#0891B2", bg:"#ECFEFF", subs:["Context Gathering","Communicate and Educate"] },
+      { name:"Policy & Operations", color:"#059669", bg:"#ECFDF5", subs:["Guardrails","Processes"] },
+      { name:"Teaching & Learning", color:"#D97706", bg:"#FFFBEB", subs:["Instructional Materials","Tool Selection","Instructional Leadership","Observation & Coaching"] },
+    ];
+
+    // Assessments table field IDs
+    const DISTRICT_FIELDS = {
+      "Student Readiness":       "fld9qCXakt8uAtfIU",
+      "System AI Use":           "fldKjeMVUyfhPtZVl",
+      "AI Use in Instruction":   "fldJWbeV63O8FbxgV",
+      "Set Strategy":            "fld7OWc2VDu90lNTk",
+      "Plan for Change":         "fldNWl5TWTnCutadh",
+      "Context Gathering":       "fld3tyY5eivMdvIlO",
+      "Engage and Learn":        "fldzJ34FDRFCR1iZg",
+      "Communicate and Educate": "fldEaCbJIXFop3oOK",
+      "Guardrails":              "fldwvIDtbTV0aKEqo",
+      "Processes":               "fldxDgkv9JeorGaTi",
+      "Capacity Building":       "fldjZz3t4c0aD3Eeb",
+      "Instructional Materials": "fldWAq5qi59dOzW7D",
+      "Departmental Alignment":  "fldSda1Is4V2hxlik",
+      "Tool Selection":          "fldQAzaCQVcQ1DWgf",
+    };
+    const SCHOOL_FIELDS = {
+      "Student AI Readiness":    "fldgSprjbEPoULtZF",
+      "School AI Use":           "fldfF7Gorr8mYNkfp",
+      "AI Use in Instruction":   "fldE0gYYP5AtGPRck",
+      "Context Gathering":       "fldcA8YWywiwviLTc",
+      "Communicate and Educate": "fld1ddqXK7fa393P2",
+      "Guardrails":              "fldwkfL7lU5Uf3dFx",
+      "Processes":               "fldQMmABtqbEjOUZz",
+      "Instructional Materials": "fldvuHbbTgXyVKxmC",
+      "Tool Selection":          "fldZ5dgPA3Sh8zega",
+      "Instructional Leadership":"fldXgUW1v4EdK3Its",
+      "Observation & Coaching":  "fldhtEVWL3LvPiHEg",
+    };
+
+    const LVL = [
+      { n:0, label:"Haven't Started",        color:"#94a3b8", bg:"#F1F5F9" },
+      { n:1, label:"Demonstrate Commitment", color:"#3B82F6", bg:"#EFF6FF" },
+      { n:2, label:"Invest & Implement",     color:"#8B5CF6", bg:"#EDE9FE" },
+      { n:3, label:"Deepen & Iterate",       color:"#7C3AED", bg:"#F5F3FF" },
+    ];
+
+    const STATUS_COLORS = {
+      "Active":        { bg:"#ECFDF5", color:"#065F46" },
+      "Complete":      { bg:"#EDE9FE", color:"#4C1D95" },
+      "Expiring Soon": { bg:"#FFF7ED", color:"#92400E" },
+      "Missing":       { bg:"#FEF2F2", color:"#991B1B" },
+    };
+
+    // ── Airtable REST helpers ─────────────────────────────────────────────────
+    const AT = `https://api.airtable.com/v0/${BASE}`;
+    const headers = () => ({ "Authorization": `Bearer ${PAT}`, "Content-Type": "application/json" });
+
+    async function atGet(tableId, params = {}) {
+      const q = new URLSearchParams(params).toString();
+      const r = await fetch(`${AT}/${tableId}?${q}`, { headers: headers() });
+      return r.json();
+    }
+    async function atCreate(tableId, fields) {
+      const r = await fetch(`${AT}/${tableId}`, {
+        method: "POST", headers: headers(),
+        body: JSON.stringify({ records: [{ fields }], typecast: true })
+      });
+      const d = await r.json();
+      return d.records?.[0]?.id ?? null;
+    }
+    async function atUpdate(tableId, recordId, fields) {
+      const r = await fetch(`${AT}/${tableId}/${recordId}`, {
+        method: "PATCH", headers: headers(),
+        body: JSON.stringify({ fields, typecast: true })
+      });
+      return r.ok;
+    }
+
+    // ── App ───────────────────────────────────────────────────────────────────
+    function App() {
+      const [screen, setScreen]         = useState("login");
+      const [user, setUser]             = useState(null);
+      const [partner, setPartner]       = useState(null);
+      const [rubricType, setRubricType] = useState("District");
+      const [search, setSearch]         = useState("");
+      const [tab, setTab]               = useState(0);
+      const [pre, setPre]               = useState({});
+      const [goal, setGoal]             = useState({});
+      const [fin, setFin]               = useState({});
+      const [assessmentIds, setAssIds]  = useState({});
+      const [checkIns, setCheckIns]     = useState([]);
+      const [ciForm, setCiForm]         = useState({ notes:"", status:"On Track", date: new Date().toISOString().slice(0,10) });
+      const [loading, setLoading]       = useState("");
+      const [toast, setToast]           = useState("");
+
+      const domains = rubricType === "District" ? DISTRICT_DOMAINS : SCHOOL_DOMAINS;
+      const fields  = rubricType === "District" ? DISTRICT_FIELDS  : SCHOOL_FIELDS;
+      const allSubs = domains.flatMap(d => d.subs);
+
+      function showToast(msg) { setToast(msg); setTimeout(() => setToast(""), 3000); }
+
+      async function selectPartner(p) {
+        setPartner(p); setRubricType(p.type); setLoading("Loading assessment…");
+        setPre({}); setGoal({}); setFin({}); setAssIds({}); setCheckIns([]);
+
+        // Look up existing assessment records for this partner
+        const formula = encodeURIComponent(`SEARCH("${p.id}", ARRAYJOIN({fldBiTtSb6uL9TIOS}))`);
+        const data = await atGet(T_ASSESS, {
+          filterByFormula: decodeURIComponent(formula),
+          "fields[]": ["fldp8Sq9PC1Rmp2tK"]
+        });
+        if (data.records?.length) {
+          const ids = {};
+          data.records.forEach(r => {
+            const t = r.fields["fldp8Sq9PC1Rmp2tK"]?.name;
+            if (t) ids[t] = r.id;
+          });
+          setAssIds(ids);
+
+          // Load pre-assessment scores if they exist
+          const preRec = data.records.find(r => r.fields["fldp8Sq9PC1Rmp2tK"]?.name === "Pre-Assessment");
+          if (preRec) {
+            const fMap = p.type === "District" ? DISTRICT_FIELDS : SCHOOL_FIELDS;
+            const s = {};
+            Object.entries(fMap).forEach(([sub, fid]) => {
+              if (preRec.fields[fid] != null) s[sub] = preRec.fields[fid];
+            });
+            if (Object.keys(s).length) setPre(s);
+          }
+        }
+
+        // Load check-ins
+        const ciFormula = encodeURIComponent(`SEARCH("${p.id}", ARRAYJOIN({fldYhMGzmSxGsd4cL}))`);
+        const ciData = await atGet(T_PROGRESS, {
+          filterByFormula: decodeURIComponent(ciFormula),
+          sort: JSON.stringify([{ field:"fld8amOUNSbaAMBDM", direction:"desc" }]),
+          "fields[]": ["fldgC9kHWzqIqSBUu","fldPC4HjJaYD8NLO7","fld8amOUNSbaAMBDM"]
+        });
+        if (ciData.records?.length) {
+          setCheckIns(ciData.records.map(r => ({
+            id: r.id,
+            status: r.fields["fldgC9kHWzqIqSBUu"]?.name ?? "",
+            notes:  r.fields["fldPC4HjJaYD8NLO7"] ?? "",
+            date:   r.fields["fld8amOUNSbaAMBDM"] ?? "",
+          })));
+        }
+
+        setLoading(""); setScreen("assessment"); setTab(0);
+      }
+
+      async function save(which) {
+        setLoading("Saving…");
+        const scores    = which === "pre" ? pre : which === "goal" ? goal : fin;
+        const typeLabel = which === "pre" ? "Pre-Assessment" : which === "goal" ? "Goals Assessment" : "Final Assessment";
+        const existingId = assessmentIds[typeLabel] ?? null;
+
+        const f = {
+          "fldBiTtSb6uL9TIOS": [partner.id],
+          "fldp8Sq9PC1Rmp2tK": typeLabel,
+          "fld6e09iaYwftMIfu": "Draft",
+        };
+        Object.entries(scores).forEach(([sub, val]) => {
+          const fid = fields[sub];
+          if (fid && val != null) f[fid] = Number(val);
+        });
+
+        let ok = false, newId = null;
+        if (existingId) {
+          ok = await atUpdate(T_ASSESS, existingId, f);
+        } else {
+          newId = await atCreate(T_ASSESS, f);
+          ok = !!newId;
+          if (newId) setAssIds(prev => ({ ...prev, [typeLabel]: newId }));
+        }
+
+        setLoading("");
+        ok ? showToast(`${typeLabel} ${existingId ? "updated" : "created"} ✓`) : showToast("Save failed — check your PAT and try again");
+      }
+
+      async function saveCI() {
+        if (!ciForm.notes.trim()) return;
+        setLoading("Saving…");
+        const f = {
+          "fldzj8TLSftLNw868": "Progress Check-In",
+          "fldgC9kHWzqIqSBUu": ciForm.status,
+          "fldPC4HjJaYD8NLO7": ciForm.notes,
+          "fld8amOUNSbaAMBDM": ciForm.date,
+          "fldYhMGzmSxGsd4cL": [partner.id],
+        };
+        const newId = await atCreate(T_PROGRESS, f);
+        setLoading("");
+        if (newId) {
+          setCheckIns(prev => [{ id:newId, ...ciForm }, ...prev]);
+          setCiForm({ notes:"", status:"On Track", date: new Date().toISOString().slice(0,10) });
+          showToast("Check-in saved ✓");
+        } else {
+          showToast("Save failed");
+        }
+      }
+
+      function setScore(which, sub, val) {
+        const fn = which === "pre" ? setPre : which === "goal" ? setGoal : setFin;
+        fn(p => ({ ...p, [sub]: val }));
+      }
+
+      const avg = scores => {
+        const v = allSubs.map(s => scores[s]).filter(x => x != null).map(Number);
+        return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : "—";
+      };
+
+      const filtered = PARTNERS.filter(p =>
+        `${p.name} ${p.year}`.toLowerCase().includes(search.toLowerCase())
+      );
+
+      return (
+        <div>
+          {toast && (
+            <div style={{position:"fixed",top:20,right:20,background:"#111",color:"#fff",padding:"10px 18px",borderRadius:8,fontSize:13,zIndex:999}}>
+              {toast}
+            </div>
+          )}
+          {loading && (
+            <div style={{position:"fixed",inset:0,background:"rgba(255,255,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:900,flexDirection:"column",gap:12}}>
+              <div style={{width:28,height:28,border:"3px solid #EDE9FE",borderTopColor:"#6D28D9",borderRadius:"50%",animation:"spin 0.8s linear infinite"}} />
+              <div style={{fontSize:13,color:"#6D28D9"}}>{loading}</div>
+            </div>
+          )}
+
+          {screen === "login" && (
+            <div style={{minHeight:"100vh",background:"#F8F7FF",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+              <div style={{width:"100%",maxWidth:400}}>
+                <div style={{textAlign:"center",marginBottom:28}}>
+                  <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"#6D28D9",color:"#fff",padding:"6px 16px",borderRadius:20,fontSize:13,fontWeight:500,marginBottom:16}}>
+                    <span>ai</span><span style={{fontWeight:400,opacity:0.8}}>EDU</span>
+                  </div>
+                  <h1 style={{fontSize:22,fontWeight:500,marginBottom:4}}>Partner Rubric Tracking</h1>
+                  <p style={{fontSize:14,color:"#6b7280"}}>Select your name to continue</p>
+                </div>
+                <div className="card" style={{padding:24}}>
+                  <label style={{fontSize:12,fontWeight:500,color:"#6b7280",display:"block",marginBottom:8}}>Partnership Manager</label>
+                  <select defaultValue="" onChange={e => { const s = STAFF.find(x => x.id === e.target.value); if(s) setUser(s); }} style={{marginBottom:12,cursor:"pointer"}}>
+                    <option value="" disabled>— Select your name —</option>
+                    {STAFF.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <button className="btn btn-primary" style={{width:"100%",padding:"10px 0",fontSize:14}} disabled={!user} onClick={() => setScreen("partners")}>
+                    Continue →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {screen === "partners" && (
+            <div style={{minHeight:"100vh",background:"#F8F7FF"}}>
+              <div style={{background:"#fff",borderBottom:"1px solid #e5e7eb",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{background:"#6D28D9",color:"#fff",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:500}}>aiEDU</div>
+                  <span style={{fontSize:15,fontWeight:500}}>Partner Rubric Tracking</span>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:13,color:"#6b7280"}}>{user?.name}</span>
+                  <button className="btn" style={{fontSize:12,padding:"5px 10px"}} onClick={() => { setScreen("login"); setUser(null); }}>Switch user</button>
+                </div>
+              </div>
+              <div style={{maxWidth:680,margin:"0 auto",padding:"28px 24px"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+                  <h2 style={{fontSize:17,fontWeight:500}}>Partnerships</h2>
+                  <span style={{fontSize:12,color:"#6b7280"}}>{filtered.length} shown</span>
+                </div>
+                <input placeholder="Search partnerships…" value={search} onChange={e => setSearch(e.target.value)} style={{marginBottom:12}} />
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {filtered.map(p => {
+                    const sc = STATUS_COLORS[p.status] || { bg:"#f1f5f9", color:"#334155" };
+                    const tc = p.type === "School" ? {bg:"#FFF7ED",color:"#92400E"} : {bg:"#EFF6FF",color:"#1D4ED8"};
+                    return (
+                      <div key={p.id+p.year} className="card"
+                        onClick={() => selectPartner(p)}
+                        onMouseEnter={e => e.currentTarget.style.borderColor="#6D28D9"}
+                        onMouseLeave={e => e.currentTarget.style.borderColor=""}
+                        style={{cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 18px"}}>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:500,marginBottom:5}}>{p.name}</div>
+                          <div style={{display:"flex",gap:6}}>
+                            <span style={{fontSize:11,color:"#6b7280"}}>{p.year}</span>
+                            <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:sc.bg,color:sc.color,fontWeight:500}}>{p.status}</span>
+                            <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:tc.bg,color:tc.color,fontWeight:500}}>{p.type}</span>
+                          </div>
+                        </div>
+                        <span style={{color:"#6D28D9",fontSize:18}}>›</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {screen === "assessment" && (
+            <div style={{minHeight:"100vh",background:"#F8F7FF"}}>
+              <div style={{background:"#fff",borderBottom:"1px solid #e5e7eb",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{background:"#6D28D9",color:"#fff",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:500}}>aiEDU</div>
+                  <button onClick={() => setScreen("partners")} style={{background:"none",border:"none",cursor:"pointer",color:"#6b7280",fontSize:13}}>← Partners</button>
+                </div>
+                <span style={{fontSize:12,color:"#6b7280"}}>{user?.name}</span>
+              </div>
+
+              <div style={{maxWidth:760,margin:"0 auto",padding:"24px 24px 64px"}}>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20,gap:12}}>
+                  <div>
+                    <h2 style={{fontSize:18,fontWeight:500}}>{partner?.name}</h2>
+                    <div style={{display:"flex",gap:14,marginTop:5}}>
+                      {[["Initial",pre],["Goals",goal],["Final",fin]].map(([label,s]) => (
+                        <span key={label} style={{fontSize:12,color:"#6b7280"}}>
+                          {label}: <b style={{color:"#6D28D9"}}>{avg(s)}</b>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",borderRadius:8,border:"1px solid #d1d5db",overflow:"hidden",flexShrink:0}}>
+                    {["District","School"].map(t => (
+                      <button key={t} onClick={() => { setRubricType(t); setPre({}); setGoal({}); setFin({}); }}
+                        style={{padding:"7px 14px",fontSize:12,fontWeight:500,cursor:"pointer",border:"none",
+                          background:rubricType===t?"#6D28D9":"transparent",
+                          color:rubricType===t?"#fff":"#6b7280"}}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{display:"flex",borderBottom:"1px solid #e5e7eb",marginBottom:24}}>
+                  {["Initial Assessment","Goals","Progress Check-Ins","Final Assessment"].map((t,i) => (
+                    <button key={i} onClick={() => setTab(i)}
+                      style={{flex:1,padding:"10px 6px",fontSize:12,fontWeight:tab===i?500:400,cursor:"pointer",
+                        background:"none",border:"none",
+                        borderBottom:tab===i?"2px solid #6D28D9":"2px solid transparent",
+                        color:tab===i?"#6D28D9":"#6b7280"}}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+
+                {(tab===0||tab===3) && <RubricTab domains={domains} scores={tab===0?pre:fin} onChange={(s,v)=>setScore(tab===0?"pre":"fin",s,v)} onSave={()=>save(tab===0?"pre":"fin")} label={tab===0?"Initial":"Final"} />}
+                {tab===1 && <GoalsTab domains={domains} pre={pre} goal={goal} onChange={(s,v)=>setScore("goal",s,v)} onSave={()=>save("goal")} />}
+                {tab===2 && <CheckInsTab checkIns={checkIns} form={ciForm} setForm={setCiForm} onSave={saveCI} />}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── RubricTab ─────────────────────────────────────────────────────────────
+    function RubricTab({ domains, scores, onChange, onSave, label }) {
+      const [open, setOpen] = useState(domains.reduce((a,d) => ({...a,[d.name]:true}), {}));
+      return (
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+            <p style={{fontSize:13,color:"#6b7280",lineHeight:1.5}}>Rate each sub-domain. <b>L0 = Haven't Started.</b> Levels 1–3 indicate growing maturity.</p>
+            <button className="btn btn-primary" onClick={onSave} style={{fontSize:13,whiteSpace:"nowrap",marginLeft:12}}>Save {label}</button>
+          </div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+            {LVL.map(l => <span key={l.n} style={{fontSize:11,padding:"3px 9px",borderRadius:10,background:l.bg,color:l.color,fontWeight:500,border:`0.5px solid ${l.color}44`}}>L{l.n} — {l.label}</span>)}
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {domains.map(d => {
+              const vals = d.subs.map(s=>scores[s]).filter(x=>x!=null);
+              const davg = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : null;
+              const isOpen = open[d.name] !== false;
+              return (
+                <div key={d.name} className="card" style={{padding:0,overflow:"hidden"}}>
+                  <div onClick={() => setOpen(p=>({...p,[d.name]:!isOpen}))}
+                    style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",cursor:"pointer",borderLeft:`3px solid ${d.color}`,background:d.bg}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:14,fontWeight:500,color:d.color}}>{d.name}</span>
+                      {davg && <span style={{fontSize:11,padding:"2px 7px",borderRadius:8,background:d.color+"22",color:d.color,fontWeight:500}}>avg {davg}</span>}
+                    </div>
+                    <span style={{color:d.color}}>{isOpen?"▾":"▸"}</span>
+                  </div>
+                  {isOpen && (
+                    <div style={{padding:"4px 16px 14px"}}>
+                      {d.subs.map(sub => {
+                        const cur = scores[sub] ?? null;
+                        return (
+                          <div key={sub} style={{padding:"10px 0",borderBottom:"1px solid #f1f5f9"}}>
+                            <div style={{fontSize:13,fontWeight:500,marginBottom:8}}>{sub}</div>
+                            <div style={{display:"flex",gap:6}}>
+                              {LVL.map(l => (
+                                <button key={l.n} onClick={() => onChange(sub, l.n)}
+                                  style={{flex:1,padding:"7px 2px",fontSize:11,fontWeight:500,borderRadius:6,cursor:"pointer",
+                                    border:`1.5px solid ${cur===l.n?l.color:"#e5e7eb"}`,
+                                    background:cur===l.n?l.bg:"#fff",
+                                    color:cur===l.n?l.color:"#6b7280"}}>
+                                  L{l.n}
+                                </button>
+                              ))}
+                            </div>
+                            {cur!=null && <div style={{fontSize:11,color:LVL[cur].color,marginTop:4}}>{LVL[cur].label}</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{marginTop:16,textAlign:"right"}}>
+            <button className="btn btn-primary" onClick={onSave}>Save {label} Assessment ✓</button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── GoalsTab ──────────────────────────────────────────────────────────────
+    function GoalsTab({ domains, pre, goal, onChange, onSave }) {
+      const [phase, setPhase] = useState("select");
+      const [pending, setPending] = useState(() => new Set(Object.keys(goal).filter(k=>goal[k]!=null)));
+      const allSubs = domains.flatMap(d=>d.subs);
+
+      function toggle(sub) {
+        setPending(prev => { const n=new Set(prev); n.has(sub)?n.delete(sub):n.size<3&&n.add(sub); return n; });
+      }
+      function confirm() {
+        allSubs.forEach(sub => {
+          if (!pending.has(sub)&&goal[sub]!=null) onChange(sub,null);
+          if (pending.has(sub)&&goal[sub]==null) onChange(sub, Math.min((pre[sub]??0)+1, 3));
+        });
+        setPhase("levels");
+      }
+
+      if (phase === "select") return (
+        <div>
+          <div style={{marginBottom:18}}>
+            <p style={{fontSize:13,color:"#6b7280",lineHeight:1.6}}>Select <b>1–3 priority subdomains</b> to focus on for this partner.</p>
+            <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>{pending.size}/3 selected</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
+            {domains.map(d => (
+              <div key={d.name} className="card" style={{padding:0,overflow:"hidden"}}>
+                <div style={{padding:"10px 16px",borderLeft:`3px solid ${d.color}`,background:d.bg}}>
+                  <span style={{fontSize:13,fontWeight:500,color:d.color}}>{d.name}</span>
+                </div>
+                <div style={{padding:"4px 16px 10px"}}>
+                  {d.subs.map(sub => {
+                    const cur=pre[sub]??0, sel=pending.has(sub), dis=!sel&&pending.size>=3;
+                    return (
+                      <div key={sub} onClick={()=>!dis&&toggle(sub)}
+                        style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 0",borderBottom:"1px solid #f1f5f9",cursor:dis?"not-allowed":"pointer",opacity:dis?0.4:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${sel?d.color:"#d1d5db"}`,background:sel?d.color:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            {sel && <span style={{color:"#fff",fontSize:10}}>✓</span>}
+                          </div>
+                          <span style={{fontSize:13,fontWeight:sel?500:400}}>{sub}</span>
+                        </div>
+                        <span style={{fontSize:11,padding:"2px 7px",borderRadius:8,background:LVL[cur].bg,color:LVL[cur].color,fontWeight:500,whiteSpace:"nowrap"}}>Now L{cur}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{textAlign:"right"}}>
+            <button className="btn btn-primary" onClick={confirm} disabled={pending.size===0} style={{fontSize:13}}>Set target levels →</button>
+          </div>
+        </div>
+      );
+
+      const selSubs = allSubs.filter(s=>pending.has(s));
+      return (
+        <div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+            <p style={{fontSize:13,color:"#6b7280"}}>Set a target level for each priority area.</p>
+            <button onClick={()=>setPhase("select")} style={{background:"none",border:"none",fontSize:12,color:"#6D28D9",cursor:"pointer",textDecoration:"underline"}}>← Change priorities</button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
+            {selSubs.map(sub => {
+              const d=domains.find(d=>d.subs.includes(sub)), cur=pre[sub]??0, tgt=goal[sub]??null;
+              return (
+                <div key={sub} className="card">
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                    <div>
+                      <div style={{fontSize:11,fontWeight:500,color:d?.color,marginBottom:2}}>{d?.name}</div>
+                      <div style={{fontSize:14,fontWeight:500}}>{sub}</div>
+                    </div>
+                    <span style={{fontSize:11,padding:"3px 9px",borderRadius:8,background:LVL[cur].bg,color:LVL[cur].color,fontWeight:500,whiteSpace:"nowrap"}}>Currently L{cur}</span>
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    {LVL.filter(l=>l.n>0).map(l => (
+                      <button key={l.n} onClick={()=>onChange(sub,l.n)}
+                        style={{flex:1,padding:"10px 4px",fontSize:12,fontWeight:500,borderRadius:6,cursor:"pointer",
+                          border:`1.5px solid ${tgt===l.n?l.color:"#e5e7eb"}`,
+                          background:tgt===l.n?l.bg:"#fff",color:tgt===l.n?l.color:"#6b7280"}}>
+                        <div>L{l.n}</div>
+                        <div style={{fontSize:9,marginTop:2,opacity:0.8}}>{l.label.split(" ")[0]}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {tgt!=null && <div style={{fontSize:11,color:LVL[tgt].color,marginTop:8}}>Target: {LVL[tgt].label}</div>}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <span style={{fontSize:12,color:"#6b7280"}}>{selSubs.filter(s=>goal[s]!=null).length}/{selSubs.length} targets set</span>
+            <button className="btn btn-primary" onClick={onSave} disabled={selSubs.some(s=>goal[s]==null)} style={{fontSize:13}}>Save Goals ✓</button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── CheckInsTab ───────────────────────────────────────────────────────────
+    function CheckInsTab({ checkIns, form, setForm, onSave }) {
+      const statuses = ["On Track","At Risk","Off Track","Completed"];
+      const sc = { "On Track":{bg:"#ECFDF5",color:"#065F46"}, "At Risk":{bg:"#FFFBEB",color:"#92400E"}, "Off Track":{bg:"#FEF2F2",color:"#991B1B"}, "Completed":{bg:"#EDE9FE",color:"#4C1D95"} };
+      return (
+        <div>
+          <div className="card" style={{marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:500,marginBottom:12}}>New Check-In</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              <div>
+                <label style={{fontSize:12,color:"#6b7280",display:"block",marginBottom:4}}>Date</label>
+                <input type="date" value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))} />
+              </div>
+              <div>
+                <label style={{fontSize:12,color:"#6b7280",display:"block",marginBottom:4}}>Status</label>
+                <select value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}>
+                  {statuses.map(s=><option key={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+            <label style={{fontSize:12,color:"#6b7280",display:"block",marginBottom:4}}>Progress Notes / Evidence</label>
+            <textarea rows={3} placeholder="Describe progress, evidence, artifacts…" value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} style={{resize:"vertical",marginBottom:10}} />
+            <button className="btn btn-primary" onClick={onSave} style={{fontSize:13}}>Save Check-In</button>
+          </div>
+          {checkIns.length===0 && <div style={{textAlign:"center",padding:"32px 0",color:"#6b7280",fontSize:13}}>No check-ins recorded yet</div>}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {checkIns.map((ci,i) => {
+              const c = sc[ci.status]||{bg:"#f1f5f9",color:"#334155"};
+              return (
+                <div key={ci.id||i} className="card">
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                    <span style={{fontSize:12,color:"#6b7280"}}>{ci.date||"—"}</span>
+                    {ci.status && <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:c.bg,color:c.color,fontWeight:500}}>{ci.status}</span>}
+                  </div>
+                  {ci.notes && <p style={{fontSize:13,lineHeight:1.6}}>{ci.notes}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
