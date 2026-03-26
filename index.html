@@ -193,9 +193,10 @@ const STATUS_COLORS = {
   "Missing":       { bg:"#FEF2F2", color:"#991B1B" },
 }
 
+// Calls Airtable via Anthropic MCP — no API key needed in this environment
 async function callAirtable(prompt) {
   try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
         model:"claude-sonnet-4-20250514", max_tokens:1000,
@@ -204,7 +205,7 @@ async function callAirtable(prompt) {
         mcp_servers:[{type:"url", url:MCP_URL, name:"airtable"}]
       })
     })
-    const d = await r.json()
+    const d = await res.json()
     const txt = d.content?.find(b=>b.type==="text")?.text||""
     return JSON.parse(txt.replace(/```[\w]*\n?/g,"").replace(/```/g,"").trim())
   } catch { return null }
