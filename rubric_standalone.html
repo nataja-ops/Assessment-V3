@@ -26,28 +26,26 @@
   <script type="text/babel">
     const { useState } = React;
 
-    // ── REPLACE with your Airtable Personal Access Token ──────────────────────
-    const PAT = "YOUR_AIRTABLE_PAT_HERE";
-    // ─────────────────────────────────────────────────────────────────────────
+    // PAT is entered at login — no file editing needed
 
     const BASE = "apptKJnbKllpLEA8u";
     const T_ASSESS   = "tbldyDcTuEmjbzMmr";
     const T_PROGRESS = "tblcod2MjY98TCSmO";
     const AT = `https://api.airtable.com/v0/${BASE}`;
-    const hdrs = () => ({ "Authorization": `Bearer ${PAT}`, "Content-Type": "application/json" });
+    const hdrs = (p) => ({ "Authorization": `Bearer ${p}`, "Content-Type": "application/json" });
 
-    async function atList(tbl, params = {}) {
+    async function atList(p, tbl, params = {}) {
       const q = new URLSearchParams();
       Object.entries(params).forEach(([k,v]) => Array.isArray(v) ? v.forEach(x => q.append(k, x)) : q.set(k, v));
-      const r = await fetch(`${AT}/${tbl}?${q}`, { headers: hdrs() });
+      const r = await fetch(`${AT}/${tbl}?${q}`, { headers: hdrs(p) });
       return r.json();
     }
-    async function atCreate(tbl, fields) {
-      const r = await fetch(`${AT}/${tbl}`, { method:"POST", headers: hdrs(), body: JSON.stringify({ records:[{fields}], typecast:true }) });
+    async function atCreate(p, tbl, fields) {
+      const r = await fetch(`${AT}/${tbl}`, { method:"POST", headers: hdrs(p), body: JSON.stringify({ records:[{fields}], typecast:true }) });
       const d = await r.json(); return d.records?.[0]?.id ?? null;
     }
-    async function atPatch(tbl, id, fields) {
-      const r = await fetch(`${AT}/${tbl}/${id}`, { method:"PATCH", headers: hdrs(), body: JSON.stringify({ fields, typecast:true }) });
+    async function atPatch(p, tbl, id, fields) {
+      const r = await fetch(`${AT}/${tbl}/${id}`, { method:"PATCH", headers: hdrs(p), body: JSON.stringify({ fields, typecast:true }) });
       return r.ok;
     }
 
@@ -222,6 +220,7 @@
 
     function App() {
       const [screen, setScreen] = useState("login");
+      const [pat, setPat]       = useState(() => sessionStorage.getItem("airtable_pat") || "");
       const [user, setUser]     = useState(null);
       const [partner, setP]     = useState(null);
       const [rtype, setRtype]   = useState("District");
@@ -246,13 +245,13 @@
         setP(p); setRtype(p.type); setLoad("Loading assessment…");
         setPre({}); setGoal({}); setFin({}); setAIds({}); setCis([]);
         try {
-          const d = await atList(T_ASSESS, { filterByFormula: `SEARCH("${p.id}", ARRAYJOIN({fldBiTtSb6uL9TIOS}))`, "fields[]": ["fldp8Sq9PC1Rmp2tK"] });
+          const d = await atList(pat, T_ASSESS, { filterByFormula: `SEARCH("${p.id}", ARRAYJOIN({fldBiTtSb6uL9TIOS}))`, "fields[]": ["fldp8Sq9PC1Rmp2tK"] });
           if (d.records?.length) {
             const ids = {};
             d.records.forEach(r => { const t = r.fields["fldp8Sq9PC1Rmp2tK"]?.name; if (t) ids[t] = r.id; });
             setAIds(ids);
           }
-          const cd = await atList(T_PROGRESS, { filterByFormula: `SEARCH("${p.id}", ARRAYJOIN({fldYhMGzmSxGsd4cL}))`, "fields[]":["fldgC9kHWzqIqSBUu","fldPC4HjJaYD8NLO7","fld8amOUNSbaAMBDM"], sort:[{field:"fld8amOUNSbaAMBDM",direction:"desc"}] });
+          const cd = await atList(pat, T_PROGRESS, { filterByFormula: `SEARCH("${p.id}", ARRAYJOIN({fldYhMGzmSxGsd4cL}))`, "fields[]":["fldgC9kHWzqIqSBUu","fldPC4HjJaYD8NLO7","fld8amOUNSbaAMBDM"], sort:[{field:"fld8amOUNSbaAMBDM",direction:"desc"}] });
           if (cd.records?.length) setCis(cd.records.map(r => ({ id:r.id, status:r.fields["fldgC9kHWzqIqSBUu"]?.name??"", notes:r.fields["fldPC4HjJaYD8NLO7"]??"", date:r.fields["fld8amOUNSbaAMBDM"]??"" })));
         } catch(e) { console.error(e); }
         setLoad(""); setScreen("assess"); setTab(0);
@@ -266,8 +265,8 @@
         const f = { "fldBiTtSb6uL9TIOS":[partner.id], "fldp8Sq9PC1Rmp2tK":label, "fld6e09iaYwftMIfu":"Draft" };
         Object.entries(scores).forEach(([s,v]) => { const fid=fmap[s]; if(fid&&v!=null) f[fid]=Number(v); });
         try {
-          if (exId) { await atPatch(T_ASSESS, exId, f); showToast(`${label} updated ✓`); }
-          else { const id = await atCreate(T_ASSESS, f); if(id) { setAIds(p=>({...p,[label]:id})); showToast(`${label} created ✓`); } else showToast("Save failed"); }
+          if (exId) { await atPatch(pat, T_ASSESS, exId, f); showToast(`${label} updated ✓`); }
+          else { const id = await atCreate(pat, T_ASSESS, f); if(id) { setAIds(p=>({...p,[label]:id})); showToast(`${label} created ✓`); } else showToast("Save failed"); }
         } catch { showToast("Save failed"); }
         setLoad("");
       }
@@ -276,7 +275,7 @@
         if (!ciForm.notes.trim()) return;
         setLoad("Saving…");
         try {
-          const id = await atCreate(T_PROGRESS, { "fldzj8TLSftLNw868":"Progress Check-In", "fldgC9kHWzqIqSBUu":ciForm.status, "fldPC4HjJaYD8NLO7":ciForm.notes, "fld8amOUNSbaAMBDM":ciForm.date, "fldYhMGzmSxGsd4cL":[partner.id] });
+          const id = await atCreate(pat, T_PROGRESS, { "fldzj8TLSftLNw868":"Progress Check-In", "fldgC9kHWzqIqSBUu":ciForm.status, "fldPC4HjJaYD8NLO7":ciForm.notes, "fld8amOUNSbaAMBDM":ciForm.date, "fldYhMGzmSxGsd4cL":[partner.id] });
           if (id) { setCis(p=>[{id,...ciForm},...p]); setCiForm({notes:"",status:"On Track",date:new Date().toISOString().slice(0,10)}); showToast("Check-in saved ✓"); }
           else showToast("Save failed");
         } catch { showToast("Save failed"); }
@@ -307,12 +306,14 @@
                   <p style={{fontSize:14,color:"#6b7280"}}>Select your name to continue</p>
                 </div>
                 <div className="card" style={{padding:24}}>
+                  <label style={{fontSize:12,fontWeight:500,color:"#6b7280",display:"block",marginBottom:8}}>Airtable token</label>
+                  <input type="password" placeholder="pat…" value={pat} onChange={e=>{setPat(e.target.value);sessionStorage.setItem("airtable_pat",e.target.value);}} style={{marginBottom:16,fontFamily:"monospace",fontSize:13}}/>
                   <label style={{fontSize:12,fontWeight:500,color:"#6b7280",display:"block",marginBottom:8}}>Partnership Manager</label>
                   <select defaultValue="" onChange={e=>{const s=STAFF.find(x=>x.id===e.target.value);if(s)setUser(s);}} style={{marginBottom:12,cursor:"pointer"}}>
                     <option value="" disabled>— Select your name —</option>
                     {STAFF.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
-                  <button className="btn btn-p" style={{width:"100%",padding:"10px 0",fontSize:14}} disabled={!user} onClick={()=>setScreen("partners")}>Continue →</button>
+                  <button className="btn btn-p" style={{width:"100%",padding:"10px 0",fontSize:14}} disabled={!user||!pat} onClick={()=>setScreen("partners")}>Continue →</button>
                 </div>
               </div>
             </div>
